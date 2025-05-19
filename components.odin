@@ -4,6 +4,7 @@ import "base:runtime"
 
 import "core:mem"
 import "core:reflect"
+import "core:slice"
 
 @(private)
 ComponentPool :: struct($T : typeid) {
@@ -162,54 +163,23 @@ component_container_delete :: proc(
 }
 
 @(private)
-component_container_entities :: proc(
-  container : ^ComponentContainer,
-  type : typeid,
-) -> (res : []EntityID) {
-  res = make([]EntityID, len(container[type].components))
-
-  i : int
-  for key, _ in container[type].components {
-    res[i] = key
-
-    i += 1
-  }
-
-  return
-}
-
-@(private)
 component_container_archetypes :: proc(
   container : ^ComponentContainer,
   types : ..typeid,
-) -> (res : []EntityID) {
-  archetypes := make(map[EntityID]int)
-  defer delete(archetypes)
+) -> (s : []EntityID) {
+  res := make([dynamic]EntityID)
 
-  for type in types {
-    ids := component_container_entities(container, type)
-    defer delete(ids)
+	for type in types {
+		ids, _ := slice.map_keys(container[type].components)
+		defer delete(ids)
 
-    for id in ids {
-      if _, ok := archetypes[id]; ok {
-        archetypes[id] += 1
-      } else {
-        archetypes[id] = 1
-      }
-    }
-  }
+		append_elems(&res, ..ids)
+	}
 
-  res = make([]EntityID, len(archetypes))
+	s = res[:]
+	slice.sort(s)
+	s = slice.unique(s)
 
-  i : int
-  for key, val in archetypes {
-    if val == len(types) {
-      res[i] = key
-    }
-
-    i += 1
-  }
-
-  return
+	return 
 }
 

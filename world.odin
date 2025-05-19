@@ -19,7 +19,7 @@ free_world :: proc(
 ) {
   entity_container_free(&entities)
   component_container_free(&componenets)
-  delete(systems)
+	system_container_free(&systems)
 }
 
 new_entity :: proc(
@@ -93,13 +93,9 @@ add_archetype_system :: proc(
   system := ArchetypeSystem{
     name = name,
     action = action,
+		types = make([]typeid, len(types)),
   }
-  system.types = make([]typeid, len(types))
-  i : int
-  for t in types {
-    system.types[i] = t
-    i += 1
-  }
+	copy_slice(system.types, types[:])
 
   system_container_register(&systems, system)
 }

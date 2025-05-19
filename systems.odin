@@ -41,6 +41,20 @@ ArchetypeSystem :: struct {
 SystemContainer :: distinct map[string]System
 
 @(private)
+system_container_free :: proc(
+	container : ^SystemContainer,
+) {
+	for key, _ in container {
+		#partial switch &v in container[key] {
+		case ArchetypeSystem:
+			delete(v.types)
+		}
+	}
+
+	delete(container^)
+}
+
+@(private)
 system_container_register :: proc(
   container : ^SystemContainer,
   data : System,
