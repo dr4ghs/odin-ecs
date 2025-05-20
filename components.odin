@@ -97,23 +97,8 @@ component_container_free :: proc(
   delete(container^)
 }
 
-@(private = "file")
-component_container_get_type :: proc(
-  container : ^ComponentContainer,
-  $T : typeid,
-  id : EntityID,
-) -> (^T, bool) {
-  if pool, hit := &container[T]; hit {
-    val, ok := pool.components[id]
-
-    return cast(^T)val, ok
-  }
-
-  return nil, false
-}
-
-@(private = "file")
-component_container_get_raw :: proc(
+@(private)
+component_container_get :: proc(
   container : ^ComponentContainer,
   type : typeid,
   id : EntityID,
@@ -125,12 +110,6 @@ component_container_get_raw :: proc(
   }
 
   return nil, false
-}
-
-@(private)
-component_container_get :: proc {
-  component_container_get_type,
-  component_container_get_raw,
 }
 
 @(private)
@@ -163,17 +142,23 @@ component_container_delete :: proc(
 }
 
 @(private)
-component_container_archetypes :: proc(
+component_container_query :: proc(
   container : ^ComponentContainer,
-  types : ..typeid,
+  query : Query,
 ) -> (s : []EntityID) {
   res := make([dynamic]EntityID)
 
-	for type in types {
-		ids, _ := slice.map_keys(container[type].components)
+	for type, filter in query {
+		pool := &container[type]
+
+		ids, _ := slice.map_keys(pool.components)
 		defer delete(ids)
 
-		append_elems(&res, ..ids)
+		for id in ids {
+			if val, ok := pool.components[id]; ok && filter(id, val) {
+				append(&res, id)
+			}
+		}
 	}
 
 	s = res[:]

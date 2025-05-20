@@ -1,54 +1,37 @@
 package ecs
 
-QueryResult ::union {
-  ComponentQueryResult,
-  ArchetypeQueryResult,
+import "core:slice"
+
+System :: struct {
+	query : Query,
+	action : proc(EntityID, QueryResult),
+	result : QueryResult,
 }
 
-ComponentQueryResult :: struct {
-  id    : EntityID,
-  value : rawptr,
-}
+system :: proc(
+	query : Query,
+	action : proc(EntityID, QueryResult),
+) -> (s : System) {
+	s.query = query
+	s.action = action
 
-ArchetypeQueryResult :: struct {
-  id     : EntityID,
-  values : map[typeid]rawptr,
-}
-
-System :: union {
-  BaseSystem,
-  ComponentSystem,
-  ArchetypeSystem,
-}
-
-BaseSystem :: struct {
-  name    : string,
-  action  : proc(QueryResult),
-  next    : ^string,
-}
-
-ComponentSystem :: struct {
-  using _ : BaseSystem,
-  type    : typeid,
-}
-
-ArchetypeSystem :: struct {
-  using _ : BaseSystem,
-  types   : []typeid,
+	return
 }
 
 @(private)
-SystemContainer :: distinct map[string]System
+SystemContainer :: distinct [dynamic]System
 
 @(private)
-system_container_free :: proc(
+free_system_container :: proc(
 	container : ^SystemContainer,
 ) {
-	for key, _ in container {
-		#partial switch &v in container[key] {
-		case ArchetypeSystem:
-			delete(v.types)
+	for system in container {
+		delete(system.query)
+
+		for id, _ in system.result {
+			delete(system.result[id])
 		}
+		delete(system.result)
 	}
 
 	delete(container^)
@@ -58,23 +41,37 @@ system_container_free :: proc(
 system_container_register :: proc(
   container : ^SystemContainer,
   data : System,
-) -> (ok : bool) {
-  key : string
+) {
+	append(container, data)
 
-  switch v in data {
-  case ComponentSystem:
-    key = v.name
-  case ArchetypeSystem:
-    key = v.name
-  case BaseSystem:
-    panic("ERROR: cannot register BaseSystem")
-  }
+	return
+}
 
-  if _, hit := container[key]; !hit {
-    container[key] = data
-    ok = true
-  }
+import "core:fmt"
 
-  return
+@private
+system_container_execute :: proc(
+	systems  	 : ^SystemContainer,
+	components : ^ComponentContainer,
+) {
+	for &system in systems {
+		ids := component_container_query(components, system.query)
+		defer delete(ids)
+
+		types, err := slice.map_keys(system.query)
+		defer delete(types)
+		if err != nil {
+			panic("ERROR: cannot extract types from query")
+		}
+
+		if system.result == nil {
+			fmt.println("CACHING QUERY RESULT")
+			system.result = query_execute(components, ids, types)
+		}
+
+		for id, _ in system.result {
+			system.action(id, system.result)
+		}
+	}
 }
 
