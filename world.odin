@@ -2,13 +2,16 @@ package ecs
 
 import "core:slice"
 
+world : World
+
 World :: struct {
   entities    : EntitiyContainer,
   components : ComponentContainer,
   systems     : SystemContainer,
 }
 
-new_world :: proc() -> (world : World) {
+@init
+ecs_init :: proc() {
   world.entities = entity_container_create()
   world.components = component_container_create()
   world.systems = make(SystemContainer)
@@ -16,26 +19,28 @@ new_world :: proc() -> (world : World) {
   return
 }
 
-free_world :: proc(
-  using world : ^World,
-) {
+@fini
+ecs_free :: proc() {
+	using world
+
   entity_container_free(&entities)
   component_container_free(&components)
 	free_system_container(&systems)
 }
 
-add_entity :: proc(
-  using world : ^World,
-) -> (id : EntityID) {
+add_entity :: proc() -> (id : EntityID) {
+	using world
+
   id = entity_container_new(&entities)
 
   return
 }
 
 delete_entity :: proc(
-  using world : ^World,
   id          : EntityID,
 ) -> (ok : bool) {
+	using world
+
   if ok = entity_container_delete(&entities, id); ok {
     for key, _ in components {
       component_container_delete(&components, key, id)
@@ -46,41 +51,45 @@ delete_entity :: proc(
 }
 
 add_component :: proc(
-  using world : ^World,
   id          : EntityID,
   component   : $T,
 ) -> bool {
+	using world
+
   return component_container_set(&components, id, component)
 }
 
 get_component :: proc(
-  using world : ^World,
   $T          : typeid,
   id          : EntityID,
 ) -> (^T, bool) {
+	using world
+
   return component_container_get(&components, T, id)
 }
 
 remove_component :: proc(
-  using world : ^World,
   $T          : typeid,
   id          : EntityID,
 ) -> (ok : bool){
+  using world
+
   ok = component_container_delete(&components, T, id)
 
   return
 }
 
 add_system :: proc(
-	using world : ^World,
 	system : System,
 ) {
+	using world
+
 	system_container_register(&world.systems, system)
 }
 
-update :: proc(
-  using world : ^World,
-) {
+update :: proc() {
+	using world
+
 	system_container_execute(&systems, &components)
 }
 
