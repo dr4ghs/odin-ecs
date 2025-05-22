@@ -65,7 +65,9 @@ get_component :: proc(
 ) -> (^T, bool) {
 	using world
 
-  return component_container_get(&components, T, id)
+	ptr, ok := component_container_get(&components, T, id)
+ 
+  return cast(^T)ptr, ok
 }
 
 remove_component :: proc(
