@@ -3,19 +3,37 @@ package ecs
 import "core:slice"
 
 System :: struct {
-	query : Query,
+	query  : Query,
 	action : proc(EntityID, QueryResult),
 	result : QueryResult,
 }
 
-system :: proc(
-	query : Query,
+@private
+system_plain :: proc(
+	query  : Query,
 	action : proc(EntityID, QueryResult),
 ) -> (s : System) {
+	if len(query) > 1 {
+		fmt.println("Registering archetype")
+	}
+
 	s.query = query
 	s.action = action
 
 	return
+}
+
+@private
+system_archetype :: proc(
+	archetype : Archetype($T),
+	action 		: proc(EntityID, QueryResult), 
+) -> (s : System) {
+	return
+}
+
+system :: proc {
+	system_plain,
+	system_archetype,
 }
 
 @(private)
